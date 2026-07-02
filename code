@@ -1,0 +1,633 @@
+/* First version created by Gilberto Coelho in August 2025  */
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <Keyboard.h>
+#include <EEPROM.h>
+#include <Servo.h>
+LiquidCrystal_I2C lcd(0x27,16,2);
+Servo myservo1;
+Servo myservo2;
+
+#define pinDT 6
+#define pinCLK 7
+#define pinSW 8
+#define pinButton 10
+#define pinStart 9
+#define pinBuzzer 12
+
+int screen;
+int ajuste;
+int ajuste1;
+int ajuste2;
+int ajuste3;
+int ajuste4;
+int ajuste5;
+
+int timeOnOff;
+int timeFull;
+String timeShort = "";
+int replicateCount;
+unsigned long readTime;
+unsigned long time1 = 0;
+unsigned long time2 = 0;
+uint8_t degree[8]  = {140, 146, 146, 140, 128, 128, 128, 128};
+
+byte Read;
+byte memoryRead = 50;
+byte memoryReadX = 127;
+byte Set;
+byte memorySet = 128;
+
+int timeOn[6];
+int timeOff[6];
+byte memoryTimeOn1[6] = {51, 53, 55, 57, 59, 61};
+byte memoryTimeOn2[6] = {52, 54, 56, 58, 60, 62};
+byte memoryTimeOff1[6] = {71, 138, 140, 77, 79, 81};
+byte memoryTimeOff2[6] = {72, 139, 141, 78, 80, 82};
+
+byte memoryTimeOn1X[6] = {91, 93, 95, 97, 99, 101};
+byte memoryTimeOn2X[6] = {92, 94, 96, 98, 100, 102};
+byte memoryTimeOff1X[6] = {111, 113, 115, 117, 119, 121};
+byte memoryTimeOff2X[6] = {112, 114, 116, 118, 120, 122};
+
+byte degreeOff1;
+byte degreeOn1;
+byte memoryDegreeOff1 = 87;
+byte memoryDegreeOn1 = 84;
+byte degreeOff2;
+byte degreeOn2;
+byte memoryDegreeOff2 = 85;
+byte memoryDegreeOn2 = 86;
+
+byte memoryDegreeOff1X = 129;
+byte memoryDegreeOn1X = 124;
+byte memoryDegreeOff2X = 125;
+byte memoryDegreeOn2X = 126;
+
+void runStart();
+void roleTimeOn();
+void roleTimeOff();
+void Save();
+void SaveX();
+void Clock();
+void convert();
+
+ void setup() {
+  pinMode(pinCLK, INPUT);
+  pinMode(pinDT, INPUT);
+  pinMode(pinSW, INPUT_PULLUP);
+  pinMode(pinButton, INPUT_PULLUP);
+  pinMode(pinStart, INPUT_PULLUP); 
+
+  lcd.begin();
+  lcd.backlight();
+  lcd.createChar(0, degree);
+
+  Set = EEPROM.read(memorySet);
+  
+  if(Set == 1){
+    Read = EEPROM.read(memoryRead);
+    degreeOff1 = EEPROM.read(memoryDegreeOff1);
+    degreeOn1 = EEPROM.read(memoryDegreeOn1);
+    degreeOff2 = EEPROM.read(memoryDegreeOff2);
+    degreeOn2 = EEPROM.read(memoryDegreeOn2);
+      for (int i = 0; i < 6; i++) {
+        timeOn[i] = (EEPROM.read(memoryTimeOn1[i]) << 8) + EEPROM.read(memoryTimeOn2[i]);
+        timeOff[i] = (EEPROM.read(memoryTimeOff1[i]) << 8) + EEPROM.read(memoryTimeOff2[i]);
+      }
+  }
+  
+   if(Set == 0){
+    Read = EEPROM.read(memoryReadX);
+    degreeOff1 = EEPROM.read(memoryDegreeOff1X);
+    degreeOn1 = EEPROM.read(memoryDegreeOn1X);
+    degreeOff2 = EEPROM.read(memoryDegreeOff2X);
+    degreeOn2 = EEPROM.read(memoryDegreeOn2X);
+      for (int i = 0; i < 6; i++) {
+        timeOn[i] = (EEPROM.read(memoryTimeOn1X[i]) << 8) + EEPROM.read(memoryTimeOn2X[i]);
+        timeOff[i] = (EEPROM.read(memoryTimeOff1X[i]) << 8) + EEPROM.read(memoryTimeOff2X[i]);
+      }
+  }
+  
+  
+  myservo1.write(degreeOff1);
+  myservo1.attach(5); 
+  myservo2.write(degreeOff2);
+  myservo2.attach(13);     
+  lcd.setCursor(0, 0); lcd.print("By");
+  lcd.setCursor(0, 1); lcd.print("Gilberto Coelho");
+  delay(2000);  
+  tone(pinBuzzer, 800, 200); delay(250); tone(pinBuzzer, 800, 200); 
+  myservo1.detach();
+  myservo2.detach();
+}
+
+void loop() {   
+
+  if(timeOn[3] > 1 && replicateCount > 0 && replicateCount < timeOn[3]){
+    readTime = millis(); 
+    readTime /= 1000;
+    runStart();
+  }
+  if(replicateCount >= timeOn[3]){
+    replicateCount = 0;
+  }
+
+  
+  
+  if (screen == 0 && replicateCount == 0) {
+    lcd.setCursor(0, 0); lcd.print(F("Press start     ")); 
+    if(Set == 1){
+      lcd.setCursor(0, 1); lcd.print(F("Program: ONLINE ")); 
+    }
+    if(Set == 0){
+      lcd.setCursor(0, 1); lcd.print(F("Program: TRAP   ")); 
+    }
+    while(screen == 0) { 
+    if(digitalRead(pinSW) == LOW) { delay(50); while(digitalRead(pinSW) == LOW) { ; } screen = screen + 1; }
+    if(digitalRead(pinButton) == LOW) { while(digitalRead(pinButton) == LOW) {;} delay(500); readTime = millis(); readTime /= 1000; lcd.clear(); runStart(); break; }
+  }}
+  
+  if (screen == 1) { 
+    if(Set == 1){
+      Read = EEPROM.read(memoryRead);
+      degreeOff1 = EEPROM.read(memoryDegreeOff1);
+      degreeOn1 = EEPROM.read(memoryDegreeOn1);
+      degreeOff2 = EEPROM.read(memoryDegreeOff2);
+      degreeOn2 = EEPROM.read(memoryDegreeOn2);
+        for (int i = 0; i < 6; i++) {
+          timeOn[i] = (EEPROM.read(memoryTimeOn1[i]) << 8) + EEPROM.read(memoryTimeOn2[i]);
+          timeOff[i] = (EEPROM.read(memoryTimeOff1[i]) << 8) + EEPROM.read(memoryTimeOff2[i]);
+        }
+    }
+     if(Set == 0){
+      Read = EEPROM.read(memoryReadX);
+      degreeOff1 = EEPROM.read(memoryDegreeOff1X);
+      degreeOn1 = EEPROM.read(memoryDegreeOn1X);
+      degreeOff2 = EEPROM.read(memoryDegreeOff2X);
+      degreeOn2 = EEPROM.read(memoryDegreeOn2X);
+        for (int i = 0; i < 6; i++) {
+          timeOn[i] = (EEPROM.read(memoryTimeOn1X[i]) << 8) + EEPROM.read(memoryTimeOn2X[i]);
+          timeOff[i] = (EEPROM.read(memoryTimeOff1X[i]) << 8) + EEPROM.read(memoryTimeOff2X[i]);
+        }
+    }
+    lcd.setCursor(0, 0); lcd.print(F("Program:        "));   
+    if (Set == 0){ lcd.setCursor(0, 1); lcd.print(F(" Online  >Trap  ")); }
+    if (Set == 1){ lcd.setCursor(0, 1); lcd.print(F(">Online   Trap  ")); }
+    while(screen == 1) {
+      if(digitalRead(pinSW) == LOW) { delay(50); while(digitalRead(pinSW) == LOW) { ; } screen = screen + 1; break; }
+      if(digitalRead(pinButton) == LOW) { delay(50); while(digitalRead(pinButton) == LOW) { ; } screen -= 1;  }
+      if ((digitalRead(pinDT) == 1) && (digitalRead(pinCLK) == 1)) { ajuste = 0; }  
+      if ((digitalRead(pinDT) != digitalRead(pinCLK)) && ajuste == 0) {    
+      if ((digitalRead(pinDT) == 1) && digitalRead(pinCLK) == 0) { Set = 1; delay(50); ajuste = 1; break;}
+      if ((digitalRead(pinDT) == 0) && digitalRead(pinCLK) == 1) { Set = 0; delay(50); ajuste = 1; break;}
+  }}} 
+
+  
+  if (screen == 2) {
+    lcd.clear();
+    lcd.setCursor(0, 0); lcd.print(F("Initiate AAS:   "));   
+    if (Read == 0){ lcd.setCursor(0, 1); lcd.print(F(" Yes  >No  ")); }
+    if (Read == 1){ lcd.setCursor(0, 1); lcd.print(F(">Yes   No  ")); }
+    while(screen == 2) {
+      if(digitalRead(pinSW) == LOW) { delay(50); while(digitalRead(pinSW) == LOW) { ; } screen = screen + 1; break; }
+      if(digitalRead(pinButton) == LOW) { delay(50); while(digitalRead(pinButton) == LOW) { ; } screen -= 1;  }
+      if ((digitalRead(pinDT) == 1) && (digitalRead(pinCLK) == 1)) { ajuste = 0; }  
+      if ((digitalRead(pinDT) != digitalRead(pinCLK)) && ajuste == 0) {    
+      if ((digitalRead(pinDT) == 1) && digitalRead(pinCLK) == 0) { Read = 1; delay(50); ajuste = 1; break;}
+      if ((digitalRead(pinDT) == 0) && digitalRead(pinCLK) == 1) { Read = 0; delay(50); ajuste = 1; break;}
+  }}} 
+
+  
+  if (screen == 3) {
+    lcd.setCursor(0, 0); lcd.print(F("Initiate AAS:   "));
+    timeFull = timeOn[2];
+    convert();
+    lcd.print(timeShort);
+    while(screen == 3) { roleTimeOn(2); if (ajuste2 == 1){ajuste2 = 0; break; }
+  }}
+
+  if (screen == 4) {
+    lcd.setCursor(0, 0); lcd.print(F("Blank measure:  "));   
+    if (timeOn[4] == 0){ lcd.setCursor(0, 1); lcd.print(F(" Yes  >No  ")); }
+    if (timeOn[4] == 1){ lcd.setCursor(0, 1); lcd.print(F(">Yes   No  ")); }
+    while(screen == 4) {
+      if(digitalRead(pinSW) == LOW) { delay(50); while(digitalRead(pinSW) == LOW) { ; } screen = screen + 1; break; }
+      if(digitalRead(pinButton) == LOW) { delay(50); while(digitalRead(pinButton) == LOW) { ; } screen -= 1;  }
+      if ((digitalRead(pinDT) == 1) && (digitalRead(pinCLK) == 1)) { ajuste = 0; }  
+      if ((digitalRead(pinDT) != digitalRead(pinCLK)) && ajuste == 0) {    
+      if ((digitalRead(pinDT) == 1) && digitalRead(pinCLK) == 0) { timeOn[4] = 1; delay(50); ajuste = 1; break;}
+      if ((digitalRead(pinDT) == 0) && digitalRead(pinCLK) == 1) { timeOn[4] = 0; delay(50); ajuste = 1; break;}
+  }}} 
+
+  if (screen == 5) {
+    lcd.setCursor(0, 0); lcd.print(F("Replicates:     "));
+    lcd.setCursor(0, 1); lcd.print(F("Number: ")); lcd.print(timeOn[3]); lcd.print(F("       "));
+    while(screen == 5) { roleTimeOn(3); if (ajuste2 == 1){ajuste2 = 0; break; }
+  }}
+
+  if (screen == 6) {
+    lcd.setCursor(0, 0); lcd.print(F("Finish Program: "));
+    timeFull = timeOff[2];
+    convert();
+    lcd.print(timeShort);
+    while(screen == 6) { roleTimeOff(2); if (ajuste2 == 1){ajuste2 = 0; break; }
+  }}
+    
+  if (screen == 7) {
+    lcd.setCursor(0, 0); lcd.print(F("Valve 1 OPEN:   "));
+    timeFull = timeOn[0];
+    convert();
+    lcd.print(timeShort);
+    while(screen == 7) { roleTimeOn(0); if (ajuste2 == 1){ajuste2 = 0; break; }
+  }}
+
+  if (screen == 8) {
+    lcd.setCursor(0, 0); lcd.print(F("Valve 1 CLOSE:  "));
+    timeFull = timeOff[0];
+    convert();
+    lcd.print(timeShort);       
+    while(screen == 8) { roleTimeOff(0); if (ajuste2 == 1){ajuste2 = 0; break; }
+  }}
+  
+  if (screen == 9) {
+    lcd.setCursor(0, 0);  lcd.print(F("Valve 2 OPEN:   "));
+    timeFull = timeOn[1];
+    convert();
+    lcd.print(timeShort);      
+    while(screen == 9) { roleTimeOn(1); if (ajuste2 == 1){ajuste2 = 0; break; }
+  }}
+
+  if (screen == 10) {
+    lcd.setCursor(0, 0); lcd.print(F("Valve 2 CLOSE:   "));
+    timeFull = timeOff[1];
+    convert();
+    lcd.print(timeShort);     
+    while(screen == 10) { roleTimeOff(1); if (ajuste2 == 1){ajuste2 = 0; break; }
+  }}
+
+  if (screen == 11) {
+    lcd.setCursor(0, 0); lcd.print(F("Posit. CLOSE V1:"));
+    lcd.setCursor(0, 1); lcd.print(F("Degree: ")); lcd.print(degreeOff1); lcd.write((byte)0); lcd.print(F("      "));
+    myservo1.write(degreeOff1);
+    myservo1.attach(5);
+    while(screen == 11) {
+      if(digitalRead(pinSW) == LOW) {  delay(50); while(digitalRead(pinSW) == LOW) { ; } screen = screen + 1; }
+      if(digitalRead(pinButton) == LOW) { delay(50); while(digitalRead(pinButton) == LOW) { ; } myservo1.detach(); screen -= 1; }
+      if ((digitalRead(pinDT) == 1) && (digitalRead(pinCLK) == 1)) { ajuste = 0; }  
+      if ((digitalRead(pinDT) != digitalRead(pinCLK)) && ajuste == 0) {    
+      if ((digitalRead(pinDT) == 0) && digitalRead(pinCLK) == 1 && degreeOff1 < 180) { degreeOff1 ++; ajuste = 1; delay(10); break; }
+      if ((digitalRead(pinDT) == 1) && digitalRead(pinCLK) == 0 && degreeOff1 > 0) { degreeOff1 --; ajuste = 1; delay(10); break; }
+      if ((digitalRead(pinDT) == 1) && digitalRead(pinCLK) == 0 && degreeOff1 == 0) { ajuste = 1; delay(10); }
+  }}}
+
+  if (screen == 12) {
+    lcd.setCursor(0, 0); lcd.print(F("Posit. OPEN V1: "));
+    lcd.setCursor(0, 1); lcd.print(F("Degree: ")); lcd.print(degreeOn1); lcd.write((byte)0); lcd.print(F("      "));
+    myservo1.write(degreeOn1);
+    myservo1.attach(5);
+    while(screen == 12) {
+      if(digitalRead(pinSW) == LOW) {  delay(50); while(digitalRead(pinSW) == LOW) { ; } screen = screen + 1; }
+      if(digitalRead(pinButton) == LOW) { delay(50); while(digitalRead(pinButton) == LOW) { ; } screen -= 1;  }
+      if ((digitalRead(pinDT) == 1) && (digitalRead(pinCLK) == 1)) { ajuste = 0; }  
+      if ((digitalRead(pinDT) != digitalRead(pinCLK)) && ajuste == 0) {    
+      if ((digitalRead(pinDT) == 0) && digitalRead(pinCLK) == 1 && degreeOn1 < 180) { degreeOn1 ++; ajuste = 1; delay(10); break; }
+      if ((digitalRead(pinDT) == 1) && digitalRead(pinCLK) == 0 && degreeOn1 > 0) { degreeOn1 --; ajuste = 1; delay(10); break; }
+      if ((digitalRead(pinDT) == 1) && digitalRead(pinCLK) == 0 && degreeOn1 == 0) { ajuste = 1; delay(10); }
+  }}}
+
+  if (screen == 13) {
+    lcd.setCursor(0, 0); lcd.print(F("Posit. CLOSE V2:"));
+    lcd.setCursor(0, 1); lcd.print(F("Degree: ")); lcd.print(degreeOff2); lcd.write((byte)0); lcd.print(F("      "));
+    myservo2.write(degreeOff2);
+    myservo2.attach(13);
+    while(screen == 13) {
+      if(digitalRead(pinSW) == LOW) {  delay(50); while(digitalRead(pinSW) == LOW) { ; } screen = screen + 1; }
+      if(digitalRead(pinButton) == LOW) { delay(50); while(digitalRead(pinButton) == LOW) { ; } myservo2.detach(); screen -= 1; }
+      if ((digitalRead(pinDT) == 1) && (digitalRead(pinCLK) == 1)) { ajuste = 0; }  
+      if ((digitalRead(pinDT) != digitalRead(pinCLK)) && ajuste == 0) {    
+      if ((digitalRead(pinDT) == 0) && digitalRead(pinCLK) == 1 && degreeOff2 < 180) { degreeOff2 ++; ajuste = 1; delay(10); break; }
+      if ((digitalRead(pinDT) == 1) && digitalRead(pinCLK) == 0 && degreeOff2 > 0) { degreeOff2 --; ajuste = 1; delay(10); break; }
+      if ((digitalRead(pinDT) == 1) && digitalRead(pinCLK) == 0 && degreeOff2 == 0) { ajuste = 1; delay(10); }
+  }}}
+
+  if (screen == 14) {
+    lcd.setCursor(0, 0); lcd.print(F("Posit. OPEN V2: "));
+    lcd.setCursor(0, 1); lcd.print(F("Degree: ")); lcd.print(degreeOn2); lcd.write((byte)0); lcd.print(F("      "));
+    myservo2.write(degreeOn2);
+    myservo2.attach(13);
+    while(screen == 14) {
+      if(digitalRead(pinSW) == LOW) {  delay(50); while(digitalRead(pinSW) == LOW) { ; } myservo1.write(degreeOff1); myservo2.write(degreeOff2); if(Set == 1){ Save(); } if(Set == 0){ SaveX(); } myservo1.detach(); myservo2.detach(); screen = 0; }
+      if(digitalRead(pinButton) == LOW) { delay(50); while(digitalRead(pinButton) == LOW) { ; } screen -= 1;  }
+      if ((digitalRead(pinDT) == 1) && (digitalRead(pinCLK) == 1)) { ajuste = 0; }  
+      if ((digitalRead(pinDT) != digitalRead(pinCLK)) && ajuste == 0) {    
+      if ((digitalRead(pinDT) == 0) && digitalRead(pinCLK) == 1 && degreeOn2 < 180) { degreeOn2 ++; ajuste = 1; delay(10); break; }
+      if ((digitalRead(pinDT) == 1) && digitalRead(pinCLK) == 0 && degreeOn2 > 0) { degreeOn2 --; ajuste = 1; delay(10); break; }
+      if ((digitalRead(pinDT) == 1) && digitalRead(pinCLK) == 0 && degreeOn2 == 0) { ajuste = 1; delay(10); }
+  }}}
+  
+}
+
+void runStart(){
+  
+  Clock();
+
+  replicateCount++;
+  
+  if(timeOn[3] > 1){
+    lcd.setCursor(14, 1); lcd.print(F("R")); lcd.print(replicateCount);
+  }
+  
+  tone(pinBuzzer, 800, 200);
+  
+   myservo1.write(degreeOff1);
+   myservo1.attach(5);
+   myservo2.write(degreeOff2);
+   myservo2.attach(13);
+  
+  while(time2 < timeOff[2]){    
+    
+  Clock();
+  
+  if(timeOn[0] <= time2 && ajuste1 == 0){
+    myservo1.write(degreeOn1);
+    myservo1.attach(5);
+    delay(50);
+    ajuste1 = 1;
+  }
+
+  if(timeOff[0] <= time2 && ajuste2 == 0){
+    myservo1.write(degreeOff1);
+    myservo1.attach(5);
+    delay(50);
+    ajuste2 = 1;
+  }
+
+  if(timeOn[1] <= time2 && ajuste3 == 0){
+    myservo2.write(degreeOn2);
+    myservo2.attach(13);
+    delay(50);
+    ajuste3 = 1;
+  }
+
+  if(timeOff[1] <= time2 && ajuste4 == 0){
+    myservo2.write(degreeOff2);
+    myservo2.attach(13);
+    delay(50);
+    ajuste4 = 1;
+  }
+  
+  String v1 = "";
+  String v2 = "";
+
+  if (ajuste1 == 0  && ajuste2 == 0){
+    v1 = "--";   
+  }
+  if (ajuste1 == 1 && ajuste2 == 0) {
+    v1 = "Open";  
+  } 
+  if (ajuste2 == 1) {
+    v1 = "Clos";
+  } 
+
+
+  if (ajuste3 == 0 && ajuste4 == 0){
+    v2 = "--";   
+  }
+  if (ajuste3 == 1 && ajuste4 == 0) {
+    v2 = "Open";  
+  } 
+  if (ajuste4 == 1) {
+    v2 = "Clos";   
+  } 
+
+  
+  lcd.setCursor(0, 0); lcd.print("V1:" + v1 + " V2:" + v2);
+
+
+  if(Read == 1 && ajuste5 == 0 && timeOn[2] <= time2) { 
+    Keyboard.press(KEY_RETURN); Keyboard.release(KEY_RETURN);
+      ajuste5 = 1;
+    }
+
+
+  if(digitalRead(pinButton) == LOW) {  while(digitalRead(pinButton) == LOW) {;} replicateCount = 1500; break; }
+  
+}
+
+
+  if(timeOn[4] == 1 && digitalRead(pinButton) == HIGH){
+    myservo1.write(degreeOff1);
+    myservo1.attach(5);
+    myservo2.write(degreeOff2);
+    myservo2.attach(13);
+    tone(pinBuzzer, 800, 200); delay(250); tone(pinBuzzer, 800, 200); delay(250); tone(pinBuzzer, 800, 200);
+    lcd.setCursor(0, 0); lcd.print(F("Sample finished "));
+    lcd.setCursor(0, 1); lcd.print(F("Starting Blank  "));       
+    delay(5000);
+    lcd.clear();
+    ajuste1 = 0;
+    ajuste2 = 0;
+    ajuste3 = 0;
+    ajuste4 = 0;  
+    ajuste5 = 0;
+    readTime = millis(); 
+    readTime /= 1000;
+    Clock();
+    tone(pinBuzzer, 800, 200);
+    delay(100);
+    lcd.setCursor(14, 1); lcd.print(F("B")); 
+      if(timeOn[3] > 1){
+        lcd.print(replicateCount);
+      }
+    
+    while(time2 < timeOff[2]){    
+    
+      Clock();
+  
+      if(timeOn[0] <= time2 && ajuste1 == 0){
+        myservo1.write(degreeOn1);
+        myservo1.attach(5);
+        delay(50);
+        ajuste1 = 1;
+      }
+    
+      if(timeOff[0] <= time2 && ajuste2 == 0){
+        myservo1.write(degreeOff1);
+        myservo1.attach(5);
+        delay(50);
+        ajuste2 = 1;
+      }
+      
+      String v1 = "";
+      String v2 = "";
+    
+      if (ajuste1 == 0  && ajuste2 == 0){
+        v1 = "--";   
+      }
+      if (ajuste1 == 1 && ajuste2 == 0) {
+        v1 = "Open";  
+      } 
+      if (ajuste2 == 1) {
+        v1 = "Clos";
+      } 
+    
+    
+      if (ajuste3 == 0 && ajuste4 == 0){
+        v2 = "--  ";   
+      }
+      if (ajuste3 == 1 && ajuste4 == 0) {
+        v2 = "Open";  
+      } 
+      if (ajuste4 == 1) {
+        v2 = "Clos";   
+      } 
+    
+      
+      lcd.setCursor(0, 0); lcd.print("V1:" + v1 + " V2:" + v2);
+    
+    
+      if(Read == 1 && ajuste5 == 0 && timeOn[2] <= time2) { 
+        Keyboard.press(KEY_RETURN); Keyboard.release(KEY_RETURN);
+          ajuste5 = 1;
+        }
+
+    
+      if(digitalRead(pinButton) == LOW) {  while(digitalRead(pinButton) == LOW) {;} replicateCount = 1500; break; }
+      
+      }
+  }
+
+  myservo1.write(degreeOff1);
+  myservo1.attach(5);
+  myservo2.write(degreeOff2);
+  myservo2.attach(13);
+  tone(pinBuzzer, 800, 200); delay(250); tone(pinBuzzer, 800, 200); delay(250); tone(pinBuzzer, 800, 200);
+  lcd.setCursor(0, 0); lcd.print(F("Program finished"));
+  lcd.setCursor(0, 1); lcd.print(F("Valves closed   "));       
+  delay(2000);
+  myservo1.detach();
+  myservo2.detach();
+  ajuste1 = 0;
+  ajuste2 = 0;
+  ajuste3 = 0;
+  ajuste4 = 0;  
+  ajuste5 = 0;
+  lcd.clear();
+}
+
+
+void roleTimeOn (int a){
+    if(digitalRead(pinSW) == LOW) { delay(50); while(digitalRead(pinSW) == LOW) { ; } screen = screen + 1; }
+    if(digitalRead(pinButton) == LOW) { delay(50); while(digitalRead(pinButton) == LOW) { ; } screen -= 1;  }
+    if ((digitalRead(pinDT) == 1) && (digitalRead(pinCLK) == 1)) { ajuste = 0; }  
+    if ((digitalRead(pinDT) != digitalRead(pinCLK)) && ajuste == 0) {    
+      if ((digitalRead(pinDT) == 0) && digitalRead(pinCLK) == 1 && timeOn[a] < 1499) { timeOn[a] ++; ajuste = 1; delay(10); ajuste2 = 1; }
+      if ((digitalRead(pinDT) == 1) && digitalRead(pinCLK) == 0 && timeOn[a] > 0) { timeOn[a] --; ajuste = 1; delay(10); ajuste2 = 1; }
+      if ((digitalRead(pinDT) == 1) && digitalRead(pinCLK) == 0 && timeOn[a] == 0) { ajuste = 1; delay(10); }
+}}
+  
+void roleTimeOff (int b){
+    if(digitalRead(pinSW) == LOW) { delay(50); while(digitalRead(pinSW) == LOW) { ; } screen = screen + 1; }
+    if(digitalRead(pinButton) == LOW) { delay(50); while(digitalRead(pinButton) == LOW) { ; } screen -= 1;  }
+    if ((digitalRead(pinDT) == 1) && (digitalRead(pinCLK) == 1)) { ajuste = 0; }  
+    if ((digitalRead(pinDT) != digitalRead(pinCLK)) && ajuste == 0) {    
+      if ((digitalRead(pinDT) == 0) && digitalRead(pinCLK) == 1 && timeOff[b] < 1499) { timeOff[b] ++; ajuste = 1; delay(10); ajuste2 = 1; }
+      if ((digitalRead(pinDT) == 1) && digitalRead(pinCLK) == 0 && timeOff[b] > 0) { timeOff[b] --; ajuste = 1; delay(10); ajuste2 = 1; }
+      if ((digitalRead(pinDT) == 1) && digitalRead(pinCLK) == 0 && timeOff[b] == 0) { ajuste = 1; delay(10); }
+}}
+
+void Save (){
+  EEPROM.put(memoryRead, Read);
+  EEPROM.put(memorySet, Set);
+  EEPROM.put(memoryDegreeOff1, degreeOff1);
+  EEPROM.put(memoryDegreeOn1, degreeOn1);
+  EEPROM.put(memoryDegreeOff2, degreeOff2);
+  EEPROM.put(memoryDegreeOn2, degreeOn2);
+  for (int i = 0; i < 6; i++) {
+    EEPROM.put(memoryTimeOn1[i], timeOn[i] >> 8);   EEPROM.put(memoryTimeOn2[i], timeOn[i] & 0xFF);
+    EEPROM.put(memoryTimeOff1[i], timeOff[i] >> 8);  EEPROM.put(memoryTimeOff2[i], timeOff[i] & 0xFF);
+  }
+  lcd.setCursor(0, 0); lcd.print(F("Program Online  "));   
+  lcd.setCursor(0, 1); lcd.print(F("saved in memory "));
+  delay(2000);
+}
+
+void SaveX (){
+  EEPROM.put(memoryReadX, Read);
+  EEPROM.put(memorySet, Set);
+  EEPROM.put(memoryDegreeOff1X, degreeOff1);
+  EEPROM.put(memoryDegreeOn1X, degreeOn1);
+  EEPROM.put(memoryDegreeOff2X, degreeOff2);
+  EEPROM.put(memoryDegreeOn2X, degreeOn2);
+  for (int i = 0; i < 6; i++) {
+    EEPROM.put(memoryTimeOn1X[i], timeOn[i] >> 8);   EEPROM.put(memoryTimeOn2X[i], timeOn[i] & 0xFF);
+    EEPROM.put(memoryTimeOff1X[i], timeOff[i] >> 8);  EEPROM.put(memoryTimeOff2X[i], timeOff[i] & 0xFF);
+  }
+  lcd.setCursor(0, 0); lcd.print(F("Program Trap    "));   
+  lcd.setCursor(0, 1); lcd.print(F("saved in memory "));
+  delay(2000);
+}
+
+void Clock() {
+    time1 = millis();
+    time1 /= 1000;
+    time2 = time1 - readTime;
+    lcd.setCursor(0, 1); 
+    lcd.print(F("Time: ")); 
+    if(time2 < 60){ lcd.print(F("00:")); if(time2 < 10){ lcd.print(F("0")); } lcd.print(time2); }
+    if(time2 > 59 && time2 < 120){ lcd.print(F("01:")); if(time2 < 70){ lcd.print(F("0")); } lcd.print(time2 - 60); lcd.print(F(" "));}
+    if(time2 > 119 && time2 < 180){ lcd.print(F("02:")); if(time2 < 130){ lcd.print(F("0")); } lcd.print(time2 - 120); lcd.print(F(" "));}
+    if(time2 > 179 && time2 < 240){ lcd.print(F("03:")); if(time2 < 190){ lcd.print(F("0")); } lcd.print(time2 - 180); lcd.print(F(" "));}
+    if(time2 > 239 && time2 < 300){ lcd.print(F("04:")); if(time2 < 250){ lcd.print(F("0")); } lcd.print(time2 - 240); lcd.print(F(" "));}
+    if(time2 > 299 && time2 < 360){ lcd.print(F("05:")); if(time2 < 310){ lcd.print(F("0")); } lcd.print(time2 - 300); lcd.print(F(" "));}
+    if(time2 > 359 && time2 < 420){ lcd.print(F("06:")); if(time2 < 370){ lcd.print(F("0")); } lcd.print(time2 - 360); lcd.print(F(" "));}
+    if(time2 > 419 && time2 < 480){ lcd.print(F("07:")); if(time2 < 430){ lcd.print(F("0")); } lcd.print(time2 - 420); lcd.print(F(" "));}
+    if(time2 > 479 && time2 < 540){ lcd.print(F("08:")); if(time2 < 490){ lcd.print(F("0")); } lcd.print(time2 - 480); lcd.print(F(" "));}
+    if(time2 > 539 && time2 < 600){ lcd.print(F("09:")); if(time2 < 550){ lcd.print(F("0")); } lcd.print(time2 - 540); lcd.print(F(" "));}
+    if(time2 > 599 && time2 < 660){ lcd.print(F("10:")); if(time2 < 610){ lcd.print(F("0")); } lcd.print(time2 - 600); lcd.print(F(" "));}
+    if(time2 > 659 && time2 < 720){ lcd.print(F("11:")); if(time2 < 670){ lcd.print(F("0")); } lcd.print(time2 - 660); lcd.print(F(" "));}
+    if(time2 > 719 && time2 < 780){ lcd.print(F("12:")); if(time2 < 730){ lcd.print(F("0")); } lcd.print(time2 - 720); lcd.print(F(" "));}
+    if(time2 > 779 && time2 < 840){ lcd.print(F("13:")); if(time2 < 790){ lcd.print(F("0")); } lcd.print(time2 - 780); lcd.print(F(" "));}
+    if(time2 > 839 && time2 < 900){ lcd.print(F("14:")); if(time2 < 850){ lcd.print(F("0")); } lcd.print(time2 - 840); lcd.print(F(" "));}
+    if(time2 > 899 && time2 < 960){ lcd.print(F("15:")); if(time2 < 910){ lcd.print(F("0")); } lcd.print(time2 - 900); lcd.print(F(" "));}
+    if(time2 > 959 && time2 < 1020){ lcd.print(F("16:")); if(time2 < 970){ lcd.print(F("0")); } lcd.print(time2 - 960); lcd.print(F(" "));}
+    if(time2 > 1019 && time2 < 1080){ lcd.print(F("17:")); if(time2 < 1030){ lcd.print(F("0")); } lcd.print(time2 - 1020); lcd.print(F(" "));}
+    if(time2 > 1079 && time2 < 1140){ lcd.print(F("18:")); if(time2 < 1090){ lcd.print(F("0")); } lcd.print(time2 - 1080); lcd.print(F(" "));}
+    if(time2 > 1139 && time2 < 1200){ lcd.print(F("19:")); if(time2 < 1150){ lcd.print(F("0")); } lcd.print(time2 - 1140); lcd.print(F(" "));}
+    if(time2 > 1199 && time2 < 1260){ lcd.print(F("20:")); if(time2 < 1210){ lcd.print(F("0")); } lcd.print(time2 - 1200); lcd.print(F(" "));}
+    if(time2 > 1259 && time2 < 1320){ lcd.print(F("21:")); if(time2 < 1270){ lcd.print(F("0")); } lcd.print(time2 - 1260); lcd.print(F(" "));}
+    if(time2 > 1319 && time2 < 1380){ lcd.print(F("22:")); if(time2 < 1330){ lcd.print(F("0")); } lcd.print(time2 - 1320); lcd.print(F(" "));}
+    if(time2 > 1379 && time2 < 1440){ lcd.print(F("23:")); if(time2 < 1390){ lcd.print(F("0")); } lcd.print(time2 - 1380); lcd.print(F(" "));}
+    if(time2 > 1439 && time2 < 1500){ lcd.print(F("24:")); if(time2 < 1450){ lcd.print(F("0")); } lcd.print(time2 - 1440); lcd.print(F(" "));}
+}
+
+void convert() {
+  timeShort = "";
+  if(timeFull < 60){ timeShort += "00:"; if(timeFull < 10){ timeShort += "0"; } timeShort += timeFull; }
+  if(timeFull > 59 && timeFull < 120){ timeShort += "01:"; if(timeFull < 70){ timeShort += "0"; } timeShort += (timeFull - 60); }
+  if(timeFull > 119 && timeFull < 180){ timeShort += "02:"; if(timeFull < 130){ timeShort += "0"; } timeShort += (timeFull - 120); }
+  if(timeFull > 179 && timeFull < 240){ timeShort += "03:"; if(timeFull < 190){ timeShort += "0"; } timeShort += (timeFull - 180); }
+  if(timeFull > 239 && timeFull < 300){ timeShort += "04:"; if(timeFull < 250){ timeShort += "0"; } timeShort += (timeFull - 240); }
+  if(timeFull > 299 && timeFull < 360){ timeShort += "05:"; if(timeFull < 310){ timeShort += "0"; } timeShort += (timeFull - 300); }
+  if(timeFull > 359 && timeFull < 420){ timeShort += "06:"; if(timeFull < 370){ timeShort += "0"; } timeShort += (timeFull - 360); }
+  if(timeFull > 419 && timeFull < 480){ timeShort += "07:"; if(timeFull < 430){ timeShort += "0"; } timeShort += (timeFull - 420); }
+  if(timeFull > 479 && timeFull < 540){ timeShort += "08:"; if(timeFull < 490){ timeShort += "0"; } timeShort += (timeFull - 480); }
+  if(timeFull > 539 && timeFull < 600){ timeShort += "09:"; if(timeFull < 550){ timeShort += "0"; } timeShort += (timeFull - 540); }
+  if(timeFull > 599 && timeFull < 660){ timeShort += "10:"; if(timeFull < 610){ timeShort += "0"; } timeShort += (timeFull - 600); }
+  if(timeFull > 659 && timeFull < 720){ timeShort += "11:"; if(timeFull < 670){ timeShort += "0"; } timeShort += (timeFull - 660); }
+  if(timeFull > 719 && timeFull < 780){ timeShort += "12:"; if(timeFull < 730){ timeShort += "0"; } timeShort += (timeFull - 720); }
+  if(timeFull > 779 && timeFull < 840){ timeShort += "13:"; if(timeFull < 790){ timeShort += "0"; } timeShort += (timeFull - 780); }
+  if(timeFull > 839 && timeFull < 900){ timeShort += "14:"; if(timeFull < 850){ timeShort += "0"; } timeShort += (timeFull - 840); }
+  if(timeFull > 899 && timeFull < 960){ timeShort += "15:"; if(timeFull < 910){ timeShort += "0"; } timeShort += (timeFull - 900); }
+  if(timeFull > 959 && timeFull < 1020){ timeShort += "16:"; if(timeFull < 970){ timeShort += "0"; } timeShort += (timeFull - 960); }
+  if(timeFull > 1019 && timeFull < 1080){ timeShort += "17:"; if(timeFull < 1030){ timeShort += "0"; } timeShort += (timeFull - 1020); }
+  if(timeFull > 1079 && timeFull < 1140){ timeShort += "18:"; if(timeFull < 1090){ timeShort += "0"; } timeShort += (timeFull - 1080); }
+  if(timeFull > 1139 && timeFull < 1200){ timeShort += "19:"; if(timeFull < 1150){ timeShort += "0"; } timeShort += (timeFull - 1140); }
+  if(timeFull > 1199 && timeFull < 1260){ timeShort += "20:"; if(timeFull < 1210){ timeShort += "0"; } timeShort += (timeFull - 1200); }
+  if(timeFull > 1259 && timeFull < 1320){ timeShort += "21:"; if(timeFull < 1270){ timeShort += "0"; } timeShort += (timeFull - 1260); }
+  if(timeFull > 1319 && timeFull < 1380){ timeShort += "22:"; if(timeFull < 1330){ timeShort += "0"; } timeShort += (timeFull - 1320); }
+  if(timeFull > 1379 && timeFull < 1440){ timeShort += "23:"; if(timeFull < 1390){ timeShort += "0"; } timeShort += (timeFull - 1380); }
+  if(timeFull > 1439 && timeFull < 1500){ timeShort += "24:"; if(timeFull < 1450){ timeShort += "0"; } timeShort += (timeFull - 1440); }
+  lcd.setCursor(0, 1); lcd.print(F("Time: "));      
+}
